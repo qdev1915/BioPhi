@@ -17,7 +17,7 @@ RUN make env-setup ENV_NAME=base
 RUN useradd docker \
   && mkdir /home/docker \
   && chown docker:docker /home/docker \
-  && addgroup docker staff
+  && usermod -aG staff docker
 USER docker
 
 CMD [ "biophi", "web", "--host", "0.0.0.0" ]

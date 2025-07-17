@@ -6,7 +6,7 @@ from Bio.SeqUtils.ProtParam import ProteinAnalysis
 from abnumber.chain import Chain, Position
 import pandas as pd
 from abnumber.germlines import get_imgt_v_chains, get_imgt_j_chains
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from typing import Dict, Union, List, Optional, Tuple
 import numpy as np
 from sqlalchemy.engine import Engine
@@ -294,10 +294,10 @@ def get_chain_oasis_peptides(chain, params: OASisParams):
     if not os.path.exists(params.oasis_db_path):
         raise FileNotFoundError(f'The OASis DB path does not exist: {params.oasis_db_path}')
 
-    oas_engine = create_engine('sqlite:///' + os.path.abspath(params.oasis_db_path), echo=False)
+    oas_engine = create_engine('sqlite:///' + os.path.abspath(params.oasis_db_path), echo=False).connect()
 
     oas_filter_chain = "Heavy" if chain.is_heavy_chain() else "Light"
-    result = oas_engine.execute(f'SELECT COUNT(*) FROM subjects WHERE Complete{oas_filter_chain}Seqs >= 10000')
+    result = oas_engine.execute(text(f'SELECT COUNT(*) FROM subjects WHERE Complete{oas_filter_chain}Seqs >= 10000'))
     num_total_oas_subjects = int(result.fetchall()[0][0])
 
     oas_hits = get_oas_hits(
