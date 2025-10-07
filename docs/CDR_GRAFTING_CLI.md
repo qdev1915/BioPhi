@@ -38,6 +38,175 @@ from biophi.humanization.cli.cdrgraft import cdrgraft
 main.add_command(cdrgraft)
 ```
 
+
+## Installation Instructions
+
+### Patching an Existing Conda BioPhi Installation
+
+If you have BioPhi installed via conda and want to add the CDR grafting functionality, follow these steps:
+
+#### Step 1: Clone or Download This Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/qdev1915/BioPhi.git
+cd BioPhi
+```
+
+#### Step 2: Identify Your Conda Environment
+
+First, find where your BioPhi conda environment is located:
+
+```bash
+# Activate your BioPhi environment
+conda activate biophi_env  # or your environment name
+
+# Find the Python site-packages location
+python -c "import site; print(site.getsitepackages()[0])"
+```
+
+This will output something like:
+```
+/opt/miniforge3/envs/biophi_env/lib/python3.12/site-packages
+```
+
+#### Step 3: Copy the CDR Grafting CLI File
+
+Copy the new `cdrgraft.py` command to your conda environment:
+
+```bash
+# Set your site-packages path (adjust based on Step 2 output)
+SITE_PACKAGES="/opt/miniforge3/envs/biophi_env/lib/python3.12/site-packages"
+
+# Copy the CDR grafting CLI file
+sudo cp biophi/humanization/cli/cdrgraft.py \
+    ${SITE_PACKAGES}/biophi/humanization/cli/cdrgraft.py
+
+# Set proper permissions
+sudo chmod 644 ${SITE_PACKAGES}/biophi/humanization/cli/cdrgraft.py
+```
+
+#### Step 4: Update the Main CLI Entry Point
+
+Update the `main.py` file to register the new command:
+
+```bash
+# Backup the original file
+sudo cp ${SITE_PACKAGES}/biophi/common/cli/main.py \
+    ${SITE_PACKAGES}/biophi/common/cli/main.py.backup
+
+# Copy the updated main.py
+sudo cp biophi/common/cli/main.py \
+    ${SITE_PACKAGES}/biophi/common/cli/main.py
+
+# Set proper permissions
+sudo chmod 644 ${SITE_PACKAGES}/biophi/common/cli/main.py
+```
+
+**Alternatively**, you can manually edit the file:
+
+```bash
+sudo nano ${SITE_PACKAGES}/biophi/common/cli/main.py
+```
+
+Add the import line after the other imports:
+```python
+from biophi.humanization.cli.cdrgraft import cdrgraft
+```
+
+Add the command registration after `main.add_command(sapiens)`:
+```python
+main.add_command(cdrgraft)
+```
+
+#### Step 5: Verify Installation
+
+Test that the command is available:
+
+```bash
+biophi cdrgraft --help
+```
+
+You should see the help message for the CDR grafting command.
+
+#### Step 6: Test with Sample Data
+
+```bash
+# Create a test directory
+mkdir -p ~/biophi_test
+cd ~/biophi_test
+
+# Create a sample FASTA file (or use your own)
+cat > test_antibody.fa << 'FASTA'
+>test_VH
+QVQLQESGPGLVKPSETLSLTCTVSGGSISSGGYYWSWIRQPPGKGLEWIGYIYYSGSTYGNPSLKSRVTISVDTSKNQFSLKLSSVTAADTAVYYCARDTFWSGYYYGMDVWGQGTTVTVSS
+>test_VL
+DIQMTQSPSSLSASVGDRVTITCRASQGISSALAWYQQKPGKAPKLLIYDASSLESGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQFNSYPLTFGGGTKVEIK
+FASTA
+
+# Run CDR grafting
+biophi cdrgraft test_antibody.fa --fasta-only --output cdrgraft_output.fa
+
+# View results
+cat cdrgraft_output.fa
+```
+
+#### Troubleshooting Installation
+
+**Permission Denied Errors:**
+- Use `sudo` when copying files to system directories
+- Ensure you have write permissions to the conda environment
+
+**Command Not Found:**
+- Verify your conda environment is activated: `conda activate biophi_env`
+- Check file was copied correctly: `ls -l ${SITE_PACKAGES}/biophi/humanization/cli/cdrgraft.py`
+- Restart your terminal or re-activate the conda environment
+
+**Import Errors:**
+- Clear Python cache: `find ${SITE_PACKAGES} -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null`
+- Verify `main.py` was updated correctly
+- Check for syntax errors in the copied files
+
+### Installing from Source (Development Mode)
+
+If you want to install BioPhi with CDR grafting support from source:
+
+```bash
+# Clone this repository
+git clone https://github.com/qdev1915/BioPhi.git
+cd BioPhi
+
+# Create a new conda environment (optional but recommended)
+conda create -n biophi_dev python=3.12
+conda activate biophi_dev
+
+# Install in development mode
+pip install -e .
+
+# Install dependencies if needed
+pip install -r requirements.txt
+
+# Verify installation
+biophi cdrgraft --help
+```
+
+### Docker Installation
+
+For Docker deployments, rebuild the image from this repository:
+
+```bash
+# Clone this repository
+git clone https://github.com/qdev1915/BioPhi.git
+cd BioPhi
+
+# Build Docker image
+docker build -t biophi:cdrgraft .
+
+# Run container
+docker run -it biophi:cdrgraft biophi cdrgraft --help
+```
+
+
 ## Command Syntax
 
 ```bash
