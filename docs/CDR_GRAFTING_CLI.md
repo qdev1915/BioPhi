@@ -228,7 +228,7 @@ biophi cdrgraft [OPTIONS] [INPUTS]...
 | `--cdr-definition` | TEXT | kabat | CDR definition: one of imgt, chothia, kabat, north |
 | `--heavy-v-germline` | TEXT | auto | Heavy chain V germline gene (auto for automatic selection) |
 | `--light-v-germline` | TEXT | auto | Light chain V germline gene (auto for automatic selection) |
-| `--backmutate-vernier` | FLAG | True | Backmutate Vernier zone residues to parental |
+| `--backmutate-vernier/--no-backmutate-vernier` | FLAG | False | Backmutate Vernier zone residues to parental |
 | `--sapiens-iterations` | INTEGER | 0 | Additional Sapiens iterations after CDR grafting |
 | `--limit` | INTEGER | None | Process only first N records |
 
@@ -293,18 +293,29 @@ biophi cdrgraft input.fa \
   --output humanized_chothia.fa
 ```
 
-### 6. Straight Graft (No Vernier Backmutations)
+### 6. Straight Graft (Default - No Vernier Backmutations)
 
 ```bash
 biophi cdrgraft input.fa \
-  --no-backmutate-vernier \
   --fasta-only \
   --output humanized_straight.fa
 ```
 
-**Note:** By default, `--backmutate-vernier` is enabled. Use `--no-backmutate-vernier` to disable.
+**Note:** By default, Vernier backmutation is disabled (straight graft). Use `--backmutate-vernier` to enable.
 
-### 7. Interactive Mode
+### 7. With Vernier Zone Backmutations
+
+```bash
+biophi cdrgraft input.fa \
+  --backmutate-vernier \
+  --fasta-only \
+  --output humanized_vernier.fa
+```
+
+Enables Vernier zone backmutations to preserve key structural residues.
+
+### 8. Interactive Mode
+
 
 ```bash
 biophi cdrgraft

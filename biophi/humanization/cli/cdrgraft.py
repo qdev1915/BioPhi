@@ -29,7 +29,7 @@ from tqdm import tqdm
 @click.option('--cdr-definition', default=HumanizationParams.cdr_definition, help=f'CDR definition: one of {", ".join(SUPPORTED_CDR_DEFINITIONS)}')
 @click.option('--heavy-v-germline', default='auto', help='Heavy chain V germline gene (auto for automatic selection)')
 @click.option('--light-v-germline', default='auto', help='Light chain V germline gene (auto for automatic selection)')
-@click.option('--backmutate-vernier', is_flag=True, default=True, type=bool, help='Backmutate Vernier zone residues to parental')
+@click.option('--backmutate-vernier/--no-backmutate-vernier', default=False, help='Backmutate Vernier zone residues to parental')
 @click.option('--sapiens-iterations', type=int, default=0, help='Additional Sapiens iterations after CDR grafting')
 @click.option('--limit', required=False, metavar='N', type=int, help='Process only first N records')
 def cdrgraft(inputs, output, fasta_only, scheme, cdr_definition, heavy_v_germline, light_v_germline, 
@@ -46,8 +46,8 @@ def cdrgraft(inputs, output, fasta_only, scheme, cdr_definition, heavy_v_germlin
         biophi cdrgraft input.fa
 
         \\b
-        # CDR graft with Vernier zone backmutations (default)
-        biophi cdrgraft input.fa --fasta-only --output humanized.fa
+        # CDR graft with Vernier zone backmutations
+        biophi cdrgraft input.fa --backmutate-vernier --fasta-only --output humanized.fa
 
         \\b
         # CDR graft followed by 2 iterations of Sapiens refinement
