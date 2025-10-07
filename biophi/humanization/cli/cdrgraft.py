@@ -29,7 +29,7 @@ from tqdm import tqdm
 @click.option('--cdr-definition', default=HumanizationParams.cdr_definition, help=f'CDR definition: one of {", ".join(SUPPORTED_CDR_DEFINITIONS)}')
 @click.option('--heavy-v-germline', default='auto', help='Heavy chain V germline gene (auto for automatic selection)')
 @click.option('--light-v-germline', default='auto', help='Light chain V germline gene (auto for automatic selection)')
-@click.option('--backmutate-vernier/--no-backmutate-vernier', default=False, help='Backmutate Vernier zone residues to parental')
+@click.option('--backmutate-vernier/--no-backmutate-vernier', default=False, type=bool, help='Backmutate Vernier zone residues to parental (default: disabled)')
 @click.option('--sapiens-iterations', type=int, default=0, help='Additional Sapiens iterations after CDR grafting')
 @click.option('--limit', required=False, metavar='N', type=int, help='Process only first N records')
 def cdrgraft(inputs, output, fasta_only, scheme, cdr_definition, heavy_v_germline, light_v_germline, 
@@ -46,8 +46,8 @@ def cdrgraft(inputs, output, fasta_only, scheme, cdr_definition, heavy_v_germlin
         biophi cdrgraft input.fa
 
         \\b
-        # CDR graft with Vernier zone backmutations
-        biophi cdrgraft input.fa --backmutate-vernier --fasta-only --output humanized.fa
+        # CDR graft with Vernier zone backmutations (default)
+        biophi cdrgraft input.fa --fasta-only --output humanized.fa
 
         \\b
         # CDR graft followed by 2 iterations of Sapiens refinement
@@ -186,31 +186,35 @@ def cdrgraft_full_report(inputs, output, humanization_params, oasis_params=None,
     """Process FASTA files and generate full report with OASis analysis."""
     click.echo('Reading input files...', err=True)
     
-    # Parse antibody files (pairs VH and VL)
-    antibodies = list(parse_antibody_files(
-        inputs,
-        scheme=humanization_params.scheme,
-        cdr_definition=humanization_params.cdr_definition
-    ))
+    # Read FASTA records
+    records = list(iterate_fasta(inputs))
     
     if limit:
-        antibodies = antibodies[:limit]
+        records = records[:limit]
     
-    if not antibodies:
-        click.echo('No valid antibody sequences found!', err=True)
+    if not records:
+        click.echo('No valid sequences found!', err=True)
         return
     
-    show_unpaired_warning(antibodies)
-    
-    click.echo(f'Processing {len(antibodies)} {"antibody" if len(antibodies) == 1 else "antibodies"}...', err=True)
+    click.echo(f'Processing {len(records)} sequences...', err=True)
     
     results = []
     humanized_records = []
     
-    for name, vh_chain, vl_chain in tqdm(antibodies, desc='Humanizing', file=sys.stderr):
+    for record in tqdm(records, desc='Humanizing', file=sys.stderr):
         try:
-            # Humanize
-            result = humanize_antibody(vh=vh_chain, vl=vl_chain, params=humanization_params)
+            chain = Chain(str(record.seq), scheme=humanization_params.scheme, cdr_definition=humanization_params.cdr_definition)
+            chain.name = record.id
+            
+            # Determine if heavy or light chain
+            if chain.is_heavy_chain():
+                vh_chain = chain
+                vl_chain = None
+                result = humanize_antibody(vh=vh_chain, vl=None, params=humanization_params)
+            else:
+                vh_chain = None
+                vl_chain = chain
+                result = humanize_antibody(vh=None, vl=vl_chain, params=humanization_params)
             
             # Get humanness scores if OASis DB is available
             parental_humanness = None
@@ -229,11 +233,11 @@ def cdrgraft_full_report(inputs, output, humanization_params, oasis_params=None,
                         params=oasis_params
                     )
                 except Exception as e:
-                    click.echo(f'Warning: Could not compute OASis scores for {name}: {e}', err=True)
+                    click.echo(f'Warning: Could not compute OASis scores for {record.id}: {e}', err=True)
             
             # Store result
             results.append({
-                'name': name,
+                'name': record.id,
                 'humanization': result,
                 'parental_humanness': parental_humanness,
                 'humanized_humanness': humanized_humanness
@@ -246,18 +250,18 @@ def cdrgraft_full_report(inputs, output, humanization_params, oasis_params=None,
                     chain_type = 'VH' if humanized_chain.is_heavy_chain() else 'VL'
                     
                     method_desc = humanization_params.get_export_name()
-                    description = f'{name} {chain_type} (Humanized {name} {method_desc}BioPhi)'
+                    description = f'{record.id} {chain_type} (Humanized {record.id} {method_desc}BioPhi)'
                     
                     from Bio.SeqRecord import SeqRecord
                     humanized_record = SeqRecord(
                         seq=humanized_chain.seq,
-                        id=f'{name}_{chain_type}',
+                        id=f'{record.id}_{chain_type}',
                         description=description
                     )
                     humanized_records.append(humanized_record)
         
         except Exception as e:
-            click.echo(f'Error processing {name}: {e}', err=True)
+            click.echo(f'Error processing {record.id}: {e}', err=True)
             continue
     
     # Output results
@@ -288,14 +292,15 @@ def cdrgraft_full_report(inputs, output, humanization_params, oasis_params=None,
                 
                 if res['humanized_humanness']:
                     hum = res['humanized_humanness']
-                    row['OASis_Identity'] = hum.oasis_identity
-                    row['OASis_Percentile'] = hum.oasis_percentile
+                    min_frac = oasis_params.min_fraction_subjects if oasis_params else 0.01
+                    row['OASis_Identity'] = hum.get_oasis_identity(min_frac)
+                    row['OASis_Percentile'] = hum.get_oasis_percentile(min_frac)
                     if hum.vh:
-                        row['Heavy_OASis_Identity'] = hum.vh.oasis_identity
-                        row['Heavy_Germline'] = hum.vh.v_gene
+                        row['Heavy_OASis_Identity'] = hum.vh.get_oasis_identity(min_frac)
+                        # row['Heavy_Germline'] = hum.vh.v_gene  # Not available in ChainHumanness
                     if hum.vl:
-                        row['Light_OASis_Identity'] = hum.vl.oasis_identity
-                        row['Light_Germline'] = hum.vl.v_gene
+                        row['Light_OASis_Identity'] = hum.vl.get_oasis_identity(min_frac)
+                        # row['Light_Germline'] = hum.vl.v_gene  # Not available in ChainHumanness
                 
                 num_mutations = 0
                 if res['humanization'].vh:
@@ -309,7 +314,7 @@ def cdrgraft_full_report(inputs, output, humanization_params, oasis_params=None,
             sheets['Overview'] = pd.DataFrame(overview_data)
             
             # Write to Excel
-            write_sheets(xlsx_path, sheets)
+            write_sheets(sheets, xlsx_path)
         
         click.echo(f'Completed! Output saved to {output}', err=True)
     
@@ -374,8 +379,8 @@ def cdrgraft_interactive(humanization_params, oasis_params=None):
                 vl=result.vl.humanized_chain if result.vl else None,
                 params=oasis_params
             )
-            click.echo(f'\nOASis Identity: {humanness.oasis_identity:.2%}')
-            click.echo(f'OASis Percentile: {humanness.oasis_percentile:.2%}')
+            click.echo(f'\nOASis Identity: {humanness.get_oasis_identity(oasis_params.min_fraction_subjects):.2%}')
+            click.echo(f'OASis Percentile: {humanness.get_oasis_percentile(oasis_params.min_fraction_subjects):.2%}')
         except Exception as e:
             click.echo(f'\nCould not compute OASis scores: {e}', err=True)
 
