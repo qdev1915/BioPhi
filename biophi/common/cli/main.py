@@ -3,6 +3,7 @@ import traceback
 from biophi.common.utils.formatting import spacer
 from biophi.humanization.cli.sapiens import sapiens
 from biophi.humanization.cli.oasis import oasis
+from biophi.humanization.cli.cdrgraft import cdrgraft
 from biophi.common.cli.web import web
 
 class MainGroup(click.Group):
@@ -29,6 +30,7 @@ def main():
 # Register all commands
 # Humanization & Humanness
 main.add_command(sapiens)
+main.add_command(cdrgraft)
 main.add_command(oasis)
 main.add_command(web)
 
