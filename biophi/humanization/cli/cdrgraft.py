@@ -278,6 +278,14 @@ def cdrgraft_full_report(inputs, output, humanization_params, oasis_params=None,
         with open(fasta_path, 'w') as f:
             SeqIO.write(humanized_records, f, 'fasta')
         
+        # Write alignments file
+        if results:
+            alignments_path = os.path.join(output, 'alignments.txt')
+            click.echo(f'Writing alignments to {alignments_path}...', err=True)
+            alignments = [res['humanization'].get_alignment_string() for res in results]
+            with open(alignments_path, 'w') as f:
+                f.write('\n\n'.join(alignments))
+        
         # Write Excel report if OASis was run
         if oasis_params and results:
             xlsx_path = os.path.join(output, 'CDRGraft_report.xlsx')
